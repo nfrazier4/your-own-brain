@@ -9,9 +9,10 @@ import { StreamingIndicator } from './StreamingIndicator';
 interface ChatContainerProps {
   messages: Message[];
   isStreaming: boolean;
+  onTaskApproved?: () => void;
 }
 
-export function ChatContainer({ messages, isStreaming }: ChatContainerProps) {
+export function ChatContainer({ messages, isStreaming, onTaskApproved }: ChatContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +84,7 @@ export function ChatContainer({ messages, isStreaming }: ChatContainerProps) {
               key={index}
               message={message}
               isNew={index === messages.length - 1}
+              onTaskApproved={onTaskApproved}
             />
           ))}
           {isStreaming && <StreamingIndicator />}

@@ -245,7 +245,14 @@ export default function ChatPage() {
 
         {/* Main Chat Area */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <ChatContainer messages={messages} isStreaming={isStreaming} />
+          <ChatContainer
+            messages={messages}
+            isStreaming={isStreaming}
+            onTaskApproved={() => {
+              // Optionally reload memories or show success notification
+              console.log('Task approved and saved to brain');
+            }}
+          />
           <ChatInput
             value={input}
             onChange={setInput}
