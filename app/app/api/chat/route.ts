@@ -1,0 +1,113 @@
+import { anthropic, CLAUDE_MODEL, MAX_TOKENS, type Message } from '@/lib/anthropic';
+import { buildContextForClaude, formatContextForPrompt } from '@/lib/context-builder';
+
+export const runtime = 'nodejs';
+
+/**
+ * POST /api/chat
+ * Streaming chat endpoint with Claude Sonnet 4.5
+ *
+ * Request body: { messages: Message[] }
+ * Response: Server-Sent Events stream
+ */
+export async function POST(req: Request) {
+  try {
+    const { messages } = await req.json() as { messages: Message[] };
+
+    if (!messages || !Array.isArray(messages)) {
+      return new Response('Invalid request: messages array required', { status: 400 });
+    }
+
+    // Fetch context in parallel (profile + memories + calendar + slack)
+    const context = await buildContextForClaude();
+    const formattedContext = formatContextForPrompt(context);
+
+    // Build system prompt with full context
+    const systemPrompt = `You are Nate's Chief of Staff - a proactive, ADHD-friendly personal assistant.
+
+${formattedContext}
+
+## Your Role
+You help Nate manage his complex, multi-context life across 4 areas (OAIA, Swell, Partio, Personal). You:
+- Provide concise, actionable responses (1-2 sentences unless asked for more)
+- Proactively reference relevant memories and context
+- Help create structured tasks when appropriate
+- Reduce cognitive load by surfacing what matters
+- Ask clarifying questions for vague requests
+
+## Task Card Format
+When suggesting a task, use this exact format:
+
+\`\`\`task-card
+{
+  "title": "Clear, actionable task description",
+  "area": "oaia|swell|partio|personal|work",
+  "type": "thought|decision|person|meeting|insight",
+  "dueDate": "2026-03-07"
+}
+\`\`\`
+
+## Guidelines
+- **Be concise**: ADHD-friendly responses, one clear action at a time
+- **Reference context**: Use recent memories, calendar events, Slack mentions
+- **Stay in character**: You're a Chief of Staff, not a generic assistant
+- **Proactive**: Surface relevant info without being asked
+- **Action-oriented**: Always include next steps when appropriate`;
+
+    // Create streaming response
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Stream Claude's response
+          const messageStream = await anthropic.messages.stream({
+            model: CLAUDE_MODEL,
+            max_tokens: MAX_TOKENS,
+            system: systemPrompt,
+            messages: messages.map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+          });
+
+          // Forward each chunk as SSE
+          for await (const event of messageStream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              const sseData = `data: ${JSON.stringify({
+                type: 'content_block_delta',
+                delta: { text: event.delta.text }
+              })}\n\n`;
+              controller.enqueue(new TextEncoder().encode(sseData));
+            }
+          }
+
+          // Send completion signal
+          controller.enqueue(new TextEncoder().encode('data: {"type":"message_stop"}\n\n'));
+          controller.close();
+        } catch (error) {
+          console.error('Streaming error:', error);
+          const errorData = `data: ${JSON.stringify({
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          })}\n\n`;
+          controller.enqueue(new TextEncoder().encode(errorData));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no', // Disable nginx buffering
+      },
+    });
+  } catch (error) {
+    console.error('Chat API error:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
