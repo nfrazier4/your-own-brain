@@ -38,6 +38,7 @@ const SMART_LISTS = [
   { id: "recent",   icon: "🕐", label: "Recent" },
   { id: "actions",  icon: "⚡", label: "Actions" },
   { id: "search",   icon: "🔍", label: "Search" },
+  { id: "archive",  icon: "📦", label: "Archive" },
 ];
 
 // ─── CAPTURE TYPES ──────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ interface Memory {
   tags: string[];
   created_at: string;
   distance?: number;
+  archived: boolean;
 }
 
 // Helper to get relative time
@@ -94,6 +96,7 @@ export default function YourOwnBrain() {
   const [isCapturing,   setIsCapturing]   = useState(false);
   const [isSearching,   setIsSearching]   = useState(false);
   const [totalCount,    setTotalCount]    = useState(0);
+  const [archiveFilter, setArchiveFilter] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -115,7 +118,8 @@ export default function YourOwnBrain() {
 
       if (error) throw error;
       setMemories(data || []);
-      setTotalCount(count || 0);
+      // Count only non-archived for the "Recent" list
+      setTotalCount((data || []).filter(m => !m.archived).length);
     } catch (error) {
       console.error('Error loading memories:', error);
     }
@@ -221,6 +225,49 @@ export default function YourOwnBrain() {
     });
   };
 
+  const handleArchive = async (id: number, currentlyArchived: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('memories')
+        .update({ archived: !currentlyArchived })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Reload memories to reflect the change
+      await loadMemories();
+
+      // Clear checked state
+      setCheckedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (error) {
+      console.error('Archive error:', error);
+      alert('Failed to archive item');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this memory? This cannot be undone.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('memories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Reload memories to reflect the change
+      await loadMemories();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete item');
+    }
+  };
+
   const activeArea = AREAS.find(a => a.id === selectedArea);
 
   // Get today's date at midnight for filtering
@@ -228,6 +275,23 @@ export default function YourOwnBrain() {
   today.setHours(0, 0, 0, 0);
 
   const visibleMemories = memories.filter(m => {
+    // Archive view shows only archived items
+    if (selectedList === "archive") {
+      if (!m.archived) return false;
+
+      // Filter by label if selected
+      if (archiveFilter === "context" && selectedArea && m.context_tag !== selectedArea) return false;
+      if (archiveFilter && archiveFilter !== "context") {
+        // Filter by tag
+        if (!m.tags || !m.tags.includes(archiveFilter)) return false;
+      }
+
+      return true;
+    }
+
+    // All other views hide archived items
+    if (m.archived) return false;
+
     // Area filter
     if (selectedArea && m.context_tag !== selectedArea) return false;
 
@@ -246,20 +310,23 @@ export default function YourOwnBrain() {
     ? activeArea?.label
     : SMART_LISTS.find(l => l.id === selectedList)?.label;
 
-  // Count memories per area
+  // Count memories per area (exclude archived)
   const areaCounts = AREAS.map(area => ({
     ...area,
-    count: memories.filter(m => m.context_tag === area.id).length
+    count: memories.filter(m => m.context_tag === area.id && !m.archived).length
   }));
 
-  // Count for smart lists
+  // Count for smart lists (exclude archived except for archive view)
   const todayCount = memories.filter(m => {
+    if (m.archived) return false;
     const memDate = new Date(m.created_at);
     memDate.setHours(0, 0, 0, 0);
     return memDate.getTime() === today.getTime();
   }).length;
 
-  const actionsCount = memories.filter(m => m.action_items && m.action_items.length > 0).length;
+  const actionsCount = memories.filter(m => !m.archived && m.action_items && m.action_items.length > 0).length;
+
+  const archivedCount = memories.filter(m => m.archived).length;
 
   const allActions = memories
     .filter(m => m.action_items && m.action_items.length > 0)
@@ -370,6 +437,15 @@ export default function YourOwnBrain() {
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>🔍</span>
               <span style={{ fontSize: 13, fontWeight: selectedList === 'search' && !selectedArea ? 600 : 400, color: selectedList === 'search' && !selectedArea ? T.text : T.textSub }}>Search</span>
             </div>
+          </div>
+          <div className={`sidebar-item ${selectedList === 'archive' && !selectedArea ? "active" : ""}`}
+            onClick={() => { setSelectedList('archive'); setSelectedArea(null); setArchiveFilter(null); }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>📦</span>
+              <span style={{ fontSize: 13, fontWeight: selectedList === 'archive' && !selectedArea ? 600 : 400, color: selectedList === 'archive' && !selectedArea ? T.text : T.textSub }}>Archive</span>
+            </div>
+            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{archivedCount}</span>
           </div>
         </div>
 
@@ -545,6 +621,64 @@ export default function YourOwnBrain() {
           </div>
         )}
 
+        {/* ── ARCHIVE FILTERS (when in Archive list) ── */}
+        {selectedList === "archive" && !selectedArea && (
+          <div style={{ padding: "0 32px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 8 }}>Filter by:</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <button
+                onClick={() => setArchiveFilter(null)}
+                style={{
+                  padding: "5px 12px", fontSize: 11, fontWeight: archiveFilter === null ? 700 : 400,
+                  background: archiveFilter === null ? T.yellow : T.cardBg,
+                  color: archiveFilter === null ? T.yellowText : T.textSub,
+                  border: `1px solid ${archiveFilter === null ? T.yellow : T.border}`,
+                  borderRadius: T.radiusPill, cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                }}>
+                All ({archivedCount})
+              </button>
+              {AREAS.map(area => {
+                const areaArchivedCount = memories.filter(m => m.archived && m.context_tag === area.id).length;
+                if (areaArchivedCount === 0) return null;
+                return (
+                  <button
+                    key={area.id}
+                    onClick={() => { setArchiveFilter('context'); setSelectedArea(area.id); }}
+                    style={{
+                      padding: "5px 12px", fontSize: 11, fontWeight: archiveFilter === 'context' && selectedArea === area.id ? 700 : 400,
+                      background: archiveFilter === 'context' && selectedArea === area.id ? area.light : T.cardBg,
+                      color: archiveFilter === 'context' && selectedArea === area.id ? area.text : T.textSub,
+                      border: `1px solid ${archiveFilter === 'context' && selectedArea === area.id ? area.dot + "55" : T.border}`,
+                      borderRadius: T.radiusPill, cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                      display: "flex", alignItems: "center", gap: 5,
+                    }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: area.dot }} />
+                    {area.label} ({areaArchivedCount})
+                  </button>
+                );
+              })}
+              {/* Show unique tags from archived memories */}
+              {Array.from(new Set(memories.filter(m => m.archived).flatMap(m => m.tags || []))).slice(0, 10).map(tag => {
+                const tagCount = memories.filter(m => m.archived && m.tags?.includes(tag)).length;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => { setArchiveFilter(tag); setSelectedArea(null); }}
+                    style={{
+                      padding: "5px 12px", fontSize: 11, fontWeight: archiveFilter === tag ? 700 : 400,
+                      background: archiveFilter === tag ? T.mainBg : T.cardBg,
+                      color: archiveFilter === tag ? T.text : T.textSub,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: T.radiusPill, cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                    }}>
+                    #{tag} ({tagCount})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── MEMORY LIST ── */}
         <div style={{ flex: 1, padding: "0 32px 32px", overflowY: "auto" }}>
           {selectedList === "today" && !selectedArea && todayCount > 0 && (
@@ -612,6 +746,47 @@ export default function YourOwnBrain() {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Action buttons (appear on hover) */}
+                    <div className="row-actions" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                      {!mem.archived && isDone && (
+                        <button
+                          onClick={() => handleArchive(mem.id, mem.archived)}
+                          title="Archive"
+                          style={{
+                            padding: "6px 10px", fontSize: 10, fontWeight: 600,
+                            background: "#E8F8ED", color: "#1A6B34",
+                            border: "1px solid #A3E6B8", borderRadius: T.radiusSm,
+                            cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                          }}>
+                          📦 Archive
+                        </button>
+                      )}
+                      {mem.archived && (
+                        <button
+                          onClick={() => handleArchive(mem.id, mem.archived)}
+                          title="Unarchive"
+                          style={{
+                            padding: "6px 10px", fontSize: 10, fontWeight: 600,
+                            background: "#E5F1FF", color: "#0A4FA3",
+                            border: "1px solid #7DB3E8", borderRadius: T.radiusSm,
+                            cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                          }}>
+                          ↩️ Unarchive
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(mem.id)}
+                        title="Delete"
+                        style={{
+                          padding: "6px 10px", fontSize: 10, fontWeight: 600,
+                          background: "#FFE5E5", color: "#B91C1C",
+                          border: "1px solid #FCA5A5", borderRadius: T.radiusSm,
+                          cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                        }}>
+                        🗑️ Delete
+                      </button>
                     </div>
                   </div>
                 </div>
