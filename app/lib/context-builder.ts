@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { NATE_PROFILE } from './constants';
+import { getCalendarEvents, type CalendarEvent } from './google-calendar';
 
 interface Memory {
   id: number;
@@ -15,7 +16,7 @@ interface Memory {
 export interface ContextData {
   profile: typeof NATE_PROFILE;
   memories: Memory[];
-  calendar: any[];
+  calendar: CalendarEvent[];
   slack: any[];
 }
 
@@ -44,11 +45,10 @@ async function fetchRecentMemories(limit: number = 10): Promise<Memory[]> {
  */
 export async function buildContextForClaude(): Promise<ContextData> {
   try {
-    // Parallel fetching for speed (~300ms total)
-    const [memories] = await Promise.all([
+    // Parallel fetching for speed (~500ms total)
+    const [memories, calendar] = await Promise.all([
       fetchRecentMemories(10),
-      // TODO: Add calendar fetching in Phase 3
-      // getCalendarEvents('today').catch(() => []),
+      getCalendarEvents('today').catch(() => []),
       // TODO: Add Slack fetching in Phase 4
       // getSlackMentions(24).catch(() => []),
     ]);
@@ -56,8 +56,8 @@ export async function buildContextForClaude(): Promise<ContextData> {
     return {
       profile: NATE_PROFILE,
       memories: memories.slice(0, 10),
-      calendar: [], // Placeholder for Phase 3
-      slack: [],    // Placeholder for Phase 4
+      calendar,
+      slack: [], // Placeholder for Phase 4
     };
   } catch (error) {
     console.error('Context building error:', error);
@@ -112,10 +112,24 @@ ${context.memories.map((m, i) => {
 }).join('\n\n')}`);
   }
 
-  // Calendar section (placeholder for Phase 3)
+  // Calendar section
   if (context.calendar.length > 0) {
-    sections.push(`## Today's Calendar
-${context.calendar.map((event: any) => `- ${event.summary} at ${event.start}`).join('\n')}`);
+    sections.push(`## Today's Calendar (${context.calendar.length} events)
+${context.calendar.map((event, i) => {
+  const startTime = new Date(event.start).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  let eventText = `${i + 1}. ${startTime} - ${event.summary}`;
+  if (event.location) {
+    eventText += ` (${event.location})`;
+  }
+  if (event.attendees && event.attendees.length > 0) {
+    eventText += `\n   Attendees: ${event.attendees.slice(0, 3).join(', ')}${event.attendees.length > 3 ? '...' : ''}`;
+  }
+  return eventText;
+}).join('\n\n')}`);
   }
 
   // Slack section (placeholder for Phase 4)

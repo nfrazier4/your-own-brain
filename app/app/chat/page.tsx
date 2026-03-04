@@ -6,6 +6,7 @@ import { AREAS, SMART_LISTS } from '@/lib/constants';
 import type { Message } from '@/lib/anthropic';
 import { ChatContainer } from './components/ChatContainer';
 import { ChatInput } from './components/ChatInput';
+import { CalendarPanel } from './components/CalendarPanel';
 import Link from 'next/link';
 
 export default function ChatPage() {
@@ -261,7 +262,7 @@ export default function ChatPage() {
           />
         </div>
 
-        {/* Right Panel - Simplified for Phase 1 */}
+        {/* Right Panel - Calendar & Context */}
         <div style={{
           width: 230,
           background: T.sidebarBg,
@@ -275,12 +276,18 @@ export default function ChatPage() {
           position: "sticky",
           top: 0,
         }}>
+          {/* Calendar Events */}
+          <CalendarPanel />
+
+          <div style={{ height: 1, background: T.border, margin: "0 8px" }} />
+
+          {/* Context Sources */}
           <div style={{ padding: "4px 8px 0" }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Context Sources</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {[
                 { icon: "🧠", label: "Brain",    status: "live", statusC: "#34C759" },
-                { icon: "📅", label: "Calendar", status: "soon", statusC: T.textMuted },
+                { icon: "📅", label: "Calendar", status: "live", statusC: "#34C759" },
                 { icon: "💬", label: "Slack",    status: "soon", statusC: T.textMuted },
               ].map(source => (
                 <div key={source.label} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 8px", borderRadius: 8 }}>
