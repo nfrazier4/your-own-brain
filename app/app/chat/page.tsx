@@ -14,6 +14,41 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isPullingToRefresh, setIsPullingToRefresh] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
+
+  // Pull-to-refresh handlers
+  function handleTouchStart(e: React.TouchEvent) {
+    const containerDiv = e.currentTarget as HTMLDivElement;
+    if (containerDiv.scrollTop === 0) {
+      setTouchStartY(e.touches[0].clientY);
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    const containerDiv = e.currentTarget as HTMLDivElement;
+    if (containerDiv.scrollTop === 0 && touchStartY > 0) {
+      const touchY = e.touches[0].clientY;
+      const distance = touchY - touchStartY;
+      if (distance > 0 && distance < 100) {
+        setPullDistance(distance);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    if (pullDistance > 60) {
+      // Trigger refresh
+      setIsPullingToRefresh(true);
+      // Reload the page content (in this case, just reset to empty state or reload)
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+    setPullDistance(0);
+    setTouchStartY(0);
+  }
 
   async function sendMessage() {
     if (!input.trim() || isStreaming) return;
@@ -125,6 +160,9 @@ export default function ChatPage() {
           .sidebar.show {
             transform: translateX(0);
             box-shadow: 2px 0 16px rgba(0,0,0,0.15);
+          }
+          .right-panel {
+            display: none !important;
           }
         }
 
@@ -245,7 +283,42 @@ export default function ChatPage() {
         </div>
 
         {/* Main Chat Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Pull-to-refresh indicator */}
+          {pullDistance > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: Math.min(pullDistance, 60),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: T.mainBg,
+                zIndex: 10,
+                transition: 'height 0.2s ease',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  color: T.textMuted,
+                  fontWeight: 600,
+                  opacity: Math.min(pullDistance / 60, 1),
+                }}
+              >
+                {pullDistance > 60 ? '↻ Release to refresh' : '↓ Pull to refresh'}
+              </div>
+            </div>
+          )}
+
           <ChatContainer
             messages={messages}
             isStreaming={isStreaming}
@@ -263,7 +336,7 @@ export default function ChatPage() {
         </div>
 
         {/* Right Panel - Calendar & Context */}
-        <div style={{
+        <div className="right-panel" style={{
           width: 230,
           background: T.sidebarBg,
           padding: "20px 12px",
