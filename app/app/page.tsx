@@ -97,6 +97,8 @@ export default function YourOwnBrain() {
   const [isSearching,   setIsSearching]   = useState(false);
   const [totalCount,    setTotalCount]    = useState(0);
   const [archiveFilter, setArchiveFilter] = useState<string | null>(null);
+  const [showSidebar,   setShowSidebar]   = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -336,19 +338,36 @@ export default function YourOwnBrain() {
     })))
     .slice(0, 4);
 
+  // Helper to close sidebar on mobile when clicking items
+  const handleSidebarClick = (callback: () => void) => {
+    callback();
+    if (window.innerWidth <= 768) {
+      setShowSidebar(false);
+    }
+  };
+
   return (
-    <div style={{ fontFamily: "'Nunito', sans-serif", background: T.sidebarBg, minHeight: "100vh", display: "flex", opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease" }}>
+    <div style={{ fontFamily: "'Nunito', sans-serif", background: T.mainBg, minHeight: "100vh", display: "flex", flexDirection: "column", opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #D0CDC7; border-radius: 10px; }
+
         .sidebar-item { transition: background 0.12s ease; cursor: pointer; border-radius: 8px; }
         .sidebar-item:hover { background: rgba(0,0,0,0.05); }
         .sidebar-item.active { background: rgba(0,0,0,0.08); }
+
         .memory-row { transition: all 0.15s ease; }
         .memory-row:hover .row-actions { opacity: 1; }
         .row-actions { opacity: 0; transition: opacity 0.15s; }
+
+        /* Mobile: always show actions */
+        @media (max-width: 768px) {
+          .row-actions { opacity: 1; }
+        }
+
         .check-circle {
           width: 22px; height: 22px; border-radius: 50%;
           border: 2px solid #D0CDC7; cursor: pointer;
@@ -364,32 +383,176 @@ export default function YourOwnBrain() {
         @keyframes checkPop {
           0% { transform: scale(0.8); } 60% { transform: scale(1.2); } 100% { transform: scale(1); }
         }
+
         .capture-input {
           width: 100%; border: none; outline: none; resize: none;
           font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 400;
           line-height: 1.55; color: ${T.text}; background: transparent;
         }
         .capture-input::placeholder { color: ${T.textMuted}; }
-        .type-btn { cursor: pointer; transition: all 0.12s ease; border-radius: 20px; border: none; font-family: 'Nunito', sans-serif; }
+
+        .type-btn { cursor: pointer; transition: all 0.12s ease; border-radius: 20px; border: none; font-family: 'Nunito', sans-serif; touch-action: manipulation; }
         .type-btn:hover { transform: scale(1.04); }
-        .area-btn { cursor: pointer; transition: all 0.12s ease; font-family: 'Nunito', sans-serif; }
+        .type-btn:active { transform: scale(0.96); }
+
+        .area-btn { cursor: pointer; transition: all 0.12s ease; font-family: 'Nunito', sans-serif; touch-action: manipulation; }
+        .area-btn:active { transform: scale(0.96); }
+
         .send-btn {
           cursor: pointer; transition: all 0.15s ease;
           font-family: 'Nunito', sans-serif; font-weight: 600;
+          touch-action: manipulation;
         }
         .send-btn:hover { transform: scale(1.03); box-shadow: 0 4px 12px rgba(255,214,10,0.4); }
         .send-btn:active { transform: scale(0.97); }
+
         .toast-enter { animation: toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
         @keyframes toastIn { from { opacity:0; transform: translateY(12px) scale(0.94); } to { opacity:1; transform:none; } }
+
         .memory-enter { animation: memIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
         @keyframes memIn { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+
         .search-field { border:none; outline:none; font-family:'Nunito',sans-serif; font-size:14px; background:transparent; color:${T.text}; width:100%; }
         .search-field::placeholder { color:${T.textMuted}; }
         input { font-family:'Nunito',sans-serif; }
+
+        /* Mobile overlay */
+        .sidebar-overlay {
+          display: none;
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.4);
+          z-index: 40;
+          animation: fadeIn 0.2s ease;
+        }
+        .sidebar-overlay.show { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        /* Desktop layout */
+        .app-layout {
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+        }
+
+        @media (min-width: 769px) {
+          .app-layout { flex-direction: row; }
+        }
+        /* Hide mobile header on desktop */
+        @media (min-width: 769px) {
+          .mobile-header { display: none !important; }
+        }
+
+        /* Show mobile header only on mobile */
+        @media (max-width: 768px) {
+          .mobile-header { display: flex !important; }
+        }
+
+        /* Sidebar responsive behavior */
+        .sidebar {
+          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed !important;
+            left: 0;
+            top: 0;
+            z-index: 50;
+            transform: translateX(-100%);
+            box-shadow: none;
+          }
+          .sidebar.show {
+            transform: translateX(0);
+            box-shadow: 2px 0 16px rgba(0,0,0,0.15);
+          }
+        }
+
+        /* Right panel - hide on mobile */
+        @media (max-width: 768px) {
+          .right-panel {
+            display: none !important;
+          }
+        }
+
+        /* Main content responsive padding */
+        @media (max-width: 768px) {
+          .main-header {
+            display: none !important;
+          }
+          .capture-section {
+            padding: 0 16px 16px !important;
+          }
+          .memory-list-section {
+            padding: 0 16px 24px !important;
+          }
+        }
       `}</style>
 
+      {/* Mobile Header (visible only on mobile) */}
+      <div className="mobile-header" style={{
+        display: 'none',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        background: T.cardBg,
+        borderBottom: `1px solid ${T.border}`,
+        position: 'sticky',
+        top: 0,
+        zIndex: 30,
+      }}>
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '8px',
+            borderRadius: '8px',
+          }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ width: 18, height: 2, background: T.text, borderRadius: 2 }} />
+            <div style={{ width: 18, height: 2, background: T.text, borderRadius: 2 }} />
+            <div style={{ width: 18, height: 2, background: T.text, borderRadius: 2 }} />
+          </div>
+          <span style={{ fontSize: 15, fontWeight: 600, color: T.text }}>{listTitle}</span>
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 24, height: 24, background: T.yellow, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🧠</div>
+        </div>
+      </div>
+
+      {/* Sidebar overlay for mobile */}
+      {showSidebar && (
+        <div
+          className="sidebar-overlay show"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
+      <div className="app-layout" style={{ flex: 1, position: 'relative' }}>
+
       {/* ── SIDEBAR ── */}
-      <div style={{ width: 220, background: T.sidebarBg, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 24, flexShrink: 0, overflowY: "auto", height: "100vh", position: "sticky", top: 0 }}>
+      <div className={`sidebar ${showSidebar ? 'show' : ''}`} style={{
+        width: 220,
+        background: T.sidebarBg,
+        padding: "20px 12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 24,
+        flexShrink: 0,
+        overflowY: "auto",
+        height: "100vh",
+        position: "sticky",
+        top: 0,
+      }}>
 
         {/* App wordmark */}
         <div style={{ padding: "4px 8px", display: "flex", alignItems: "center", gap: 9 }}>
@@ -404,7 +567,7 @@ export default function YourOwnBrain() {
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 8px", marginBottom: 4 }}>Focus</div>
           <div className={`sidebar-item ${selectedList === 'today' && !selectedArea ? "active" : ""}`}
-            onClick={() => { setSelectedList('today'); setSelectedArea(null); }}
+            onClick={() => handleSidebarClick(() => { setSelectedList('today'); setSelectedArea(null); })}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>☀️</span>
@@ -413,7 +576,7 @@ export default function YourOwnBrain() {
             <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{todayCount}</span>
           </div>
           <div className={`sidebar-item ${selectedList === 'recent' && !selectedArea ? "active" : ""}`}
-            onClick={() => { setSelectedList('recent'); setSelectedArea(null); }}
+            onClick={() => handleSidebarClick(() => { setSelectedList('recent'); setSelectedArea(null); })}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>🕐</span>
@@ -422,7 +585,7 @@ export default function YourOwnBrain() {
             <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{totalCount}</span>
           </div>
           <div className={`sidebar-item ${selectedList === 'actions' && !selectedArea ? "active" : ""}`}
-            onClick={() => { setSelectedList('actions'); setSelectedArea(null); }}
+            onClick={() => handleSidebarClick(() => { setSelectedList('actions'); setSelectedArea(null); })}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>⚡</span>
@@ -431,7 +594,7 @@ export default function YourOwnBrain() {
             <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{actionsCount}</span>
           </div>
           <div className={`sidebar-item ${selectedList === 'search' && !selectedArea ? "active" : ""}`}
-            onClick={() => { setSelectedList('search'); setSelectedArea(null); }}
+            onClick={() => handleSidebarClick(() => { setSelectedList('search'); setSelectedArea(null); })}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>🔍</span>
@@ -439,7 +602,7 @@ export default function YourOwnBrain() {
             </div>
           </div>
           <div className={`sidebar-item ${selectedList === 'archive' && !selectedArea ? "active" : ""}`}
-            onClick={() => { setSelectedList('archive'); setSelectedArea(null); setArchiveFilter(null); }}
+            onClick={() => handleSidebarClick(() => { setSelectedList('archive'); setSelectedArea(null); setArchiveFilter(null); })}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>📦</span>
@@ -457,7 +620,7 @@ export default function YourOwnBrain() {
           <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 8px", marginBottom: 4 }}>Areas</div>
           {areaCounts.map(area => (
             <div key={area.id} className={`sidebar-item ${selectedArea === area.id ? "active" : ""}`}
-              onClick={() => setSelectedArea(selectedArea === area.id ? null : area.id)}
+              onClick={() => handleSidebarClick(() => setSelectedArea(selectedArea === area.id ? null : area.id))}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", marginBottom: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <div style={{ width: 9, height: 9, borderRadius: "50%", background: area.dot, flexShrink: 0 }} />
@@ -482,7 +645,7 @@ export default function YourOwnBrain() {
       <div style={{ flex: 1, background: T.mainBg, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
         {/* Header */}
-        <div style={{ padding: "28px 32px 16px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <div className="main-header" style={{ padding: "28px 32px 16px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: T.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{listTitle}</h1>
             {selectedList === "today" && !selectedArea && (
@@ -494,7 +657,7 @@ export default function YourOwnBrain() {
         </div>
 
         {/* ── CAPTURE CARD ── */}
-        <div style={{ padding: "0 32px 20px" }}>
+        <div className="capture-section" style={{ padding: "0 32px 20px" }}>
           <div style={{
             background: T.cardBg, borderRadius: T.radius, border: `1px solid ${T.border}`,
             boxShadow: focusCapture ? `0 0 0 3px ${T.yellow}55, ${T.shadowHover}` : T.shadow,
@@ -594,7 +757,7 @@ export default function YourOwnBrain() {
 
         {/* ── SEARCH (when in Search list) ── */}
         {selectedList === "search" && !selectedArea && (
-          <div style={{ padding: "0 32px 16px" }}>
+          <div className="capture-section" style={{ padding: "0 32px 16px" }}>
             <div style={{ background: T.cardBg, borderRadius: T.radius, border: `1px solid ${T.border}`, boxShadow: T.shadow, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 16, color: T.textMuted }}>🔍</span>
               <input
@@ -623,7 +786,7 @@ export default function YourOwnBrain() {
 
         {/* ── ARCHIVE FILTERS (when in Archive list) ── */}
         {selectedList === "archive" && !selectedArea && (
-          <div style={{ padding: "0 32px 16px" }}>
+          <div className="capture-section" style={{ padding: "0 32px 16px" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 8 }}>Filter by:</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               <button
@@ -680,7 +843,7 @@ export default function YourOwnBrain() {
         )}
 
         {/* ── MEMORY LIST ── */}
-        <div style={{ flex: 1, padding: "0 32px 32px", overflowY: "auto" }}>
+        <div className="memory-list-section" style={{ flex: 1, padding: "0 32px 32px", overflowY: "auto" }}>
           {selectedList === "today" && !selectedArea && todayCount > 0 && (
             <div style={{ marginBottom: 10 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", background: T.yellowDim, borderRadius: T.radiusPill, marginBottom: 14 }}>
@@ -807,7 +970,7 @@ export default function YourOwnBrain() {
       </div>
 
       {/* ── RIGHT PANEL: Capture Channels ── */}
-      <div style={{ width: 230, background: T.sidebarBg, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 20, flexShrink: 0, overflowY: "auto", height: "100vh", position: "sticky", top: 0 }}>
+      <div className="right-panel" style={{ width: 230, background: T.sidebarBg, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 20, flexShrink: 0, overflowY: "auto", height: "100vh", position: "sticky", top: 0 }}>
         <div style={{ padding: "4px 8px 0" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Capture From Anywhere</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
