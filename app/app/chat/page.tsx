@@ -339,7 +339,7 @@ export default function ChatPage() {
 
       <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
         {/* Sidebar */}
-        <div className={`sidebar ${showSidebar ? 'show' : ''}`} style={{
+        <nav aria-label="Main navigation" className={`sidebar ${showSidebar ? 'show' : ''}`} style={{
           width: 220,
           background: T.sidebarBg,
           padding: "20px 12px",
@@ -392,10 +392,11 @@ export default function ChatPage() {
               <div style={{ fontSize: 9, color: T.textMuted, marginTop: 1 }}>Brain · Calendar · Slack</div>
             </div>
           </div>
-        </div>
+        </nav>
 
         {/* Main Chat Area */}
-        <div
+        <main
+          id="main-content"
           style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -478,10 +479,10 @@ export default function ChatPage() {
             selectedFile={selectedFile}
             onRemoveFile={() => setSelectedFile(null)}
           />
-        </div>
+        </main>
 
         {/* Right Panel - Calendar & Context */}
-        <div className="right-panel" style={{
+        <aside aria-label="Calendar and context" className="right-panel" style={{
           width: 230,
           background: T.sidebarBg,
           padding: "20px 12px",
@@ -518,7 +519,7 @@ export default function ChatPage() {
               ))}
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* Keyboard shortcuts help modal */}
