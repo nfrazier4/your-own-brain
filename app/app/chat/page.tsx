@@ -9,9 +9,17 @@ import { ChatContainer } from './components/ChatContainer';
 import { ChatInput } from './components/ChatInput';
 import { CalendarPanel } from './components/CalendarPanel';
 import { Icon } from '@/components/ui/Icon';
+import { NavLink } from '@/components/layout/NavLink';
+import { useDocumentTitle } from '@/lib/use-document-title';
+import { ShortcutHelp } from '@/components/shortcuts/ShortcutHelp';
+import { useKeyboardShortcuts } from '@/lib/keyboard-shortcuts';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function ChatPage() {
+  useDocumentTitle('Chat');
+  const router = useRouter();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -21,6 +29,35 @@ export default function ChatPage() {
   const [touchStartY, setTouchStartY] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  // Register keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      id: 'toggle-sidebar',
+      key: '/',
+      ctrlKey: true,
+      description: 'Toggle sidebar',
+      category: 'navigation',
+      handler: () => setShowSidebar((prev) => !prev),
+    },
+    {
+      id: 'go-to-memories',
+      key: 'm',
+      ctrlKey: true,
+      shiftKey: true,
+      description: 'Go to Memories',
+      category: 'navigation',
+      handler: () => router.push('/memories'),
+    },
+    {
+      id: 'go-to-settings',
+      key: ',',
+      ctrlKey: true,
+      description: 'Go to Settings',
+      category: 'navigation',
+      handler: () => router.push('/settings'),
+    },
+  ]);
 
   // Pull-to-refresh handlers
   function handleTouchStart(e: React.TouchEvent) {
@@ -302,24 +339,9 @@ export default function ChatPage() {
           {/* Navigation */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 8px", marginBottom: 4 }}>Views</div>
-            <Link href="/chat" style={{ textDecoration: 'none' }}>
-              <div className="sidebar-item active" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
-                <Icon icon={MessageSquare} size={16} color={T.text} aria-label="Chat" />
-                <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Chat</span>
-              </div>
-            </Link>
-            <Link href="/memories" style={{ textDecoration: 'none' }}>
-              <div className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
-                <Icon icon={History} size={16} color={T.textSub} aria-label="Memories" />
-                <span style={{ fontSize: 13, fontWeight: 400, color: T.textSub }}>Memories</span>
-              </div>
-            </Link>
-            <Link href="/settings" style={{ textDecoration: 'none' }}>
-              <div className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
-                <Icon icon={Settings} size={16} color={T.textSub} aria-label="Settings" />
-                <span style={{ fontSize: 13, fontWeight: 400, color: T.textSub }}>Settings</span>
-              </div>
-            </Link>
+            <NavLink href="/chat" label="Chat" icon={MessageSquare} />
+            <NavLink href="/memories" label="Memories" icon={History} />
+            <NavLink href="/settings" label="Settings" icon={Settings} />
           </div>
 
           <div style={{ height: 1, background: T.border, margin: "0 8px" }} />
@@ -471,6 +493,9 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Keyboard shortcuts help modal */}
+      <ShortcutHelp />
     </div>
   );
 }

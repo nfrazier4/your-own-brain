@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { T } from '@/lib/design-tokens';
 import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/lib/theme-provider';
+import { useDocumentTitle } from '@/lib/use-document-title';
 
 interface Integration {
   id: 'google' | 'slack';
@@ -17,6 +18,8 @@ interface Integration {
 }
 
 export default function SettingsPage() {
+  useDocumentTitle('Settings');
+
   const { theme, setTheme } = useTheme();
 
   const [integrations, setIntegrations] = useState<Integration[]>([

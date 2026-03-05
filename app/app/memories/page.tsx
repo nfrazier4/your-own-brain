@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from '@/lib/supabase';
+import { useDocumentTitle } from '@/lib/use-document-title';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
 const T = {
@@ -81,6 +82,8 @@ function getRelativeTime(dateStr: string) {
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────────
 export default function YourOwnBrain() {
+  useDocumentTitle('Memories');
+
   const [selectedList,  setSelectedList]  = useState("today");
   const [selectedArea,  setSelectedArea]  = useState<string | null>(null);
   const [captureText,   setCaptureText]   = useState("");
