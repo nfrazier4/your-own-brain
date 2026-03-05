@@ -221,8 +221,35 @@ export default function ChatPage() {
       background: T.mainBg,
       minHeight: "100vh",
       display: "flex",
+      position: "relative",
       flexDirection: "column",
     }}>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        style={{
+          position: 'absolute',
+          top: '-40px',
+          left: 0,
+          background: T.yellow,
+          color: T.yellowText,
+          padding: '8px 16px',
+          textDecoration: 'none',
+          fontWeight: 600,
+          borderRadius: '0 0 8px 0',
+          zIndex: 100,
+          transition: 'top 0.2s',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.top = '0';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.top = '-40px';
+        }}
+      >
+        Skip to main content
+      </a>
+
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }

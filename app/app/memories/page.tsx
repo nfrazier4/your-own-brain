@@ -124,7 +124,7 @@ export default function YourOwnBrain() {
       if (error) throw error;
       setMemories(data || []);
       // Count only non-archived for the "Recent" list
-      setTotalCount((data || []).filter(m => !m.archived).length);
+      setTotalCount((data || []).filter((m: any) => !m.archived).length);
     } catch (error) {
       console.error('Error loading memories:', error);
     }
