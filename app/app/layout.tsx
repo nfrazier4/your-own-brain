@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/lib/theme-provider";
+import { Toaster } from "@/components/ui/Toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,11 +50,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* No-flash script - runs before React hydration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const key = 'chief-of-staff-theme';
+                const theme = localStorage.getItem(key) || 'system';
+
+                function getSystemTheme() {
+                  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+
+                const resolvedTheme = theme === 'system' ? getSystemTheme() : theme;
+                document.documentElement.setAttribute('data-theme', resolvedTheme);
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

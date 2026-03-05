@@ -10,9 +10,15 @@ export const runtime = 'nodejs';
  * Request body: { messages: Message[] }
  * Response: Server-Sent Events stream
  */
+interface FileAttachment {
+  name: string;
+  type: string;
+  data: string; // base64
+}
+
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json() as { messages: Message[] };
+    const { messages, file } = await req.json() as { messages: Message[]; file?: FileAttachment };
 
     if (!messages || !Array.isArray(messages)) {
       return new Response('Invalid request: messages array required', { status: 400 });
@@ -86,6 +92,46 @@ Assistant: Let me create a task for your OAIA prep.
 - **Proactive**: Surface relevant info without being asked
 - **Action-oriented**: Always include next steps when appropriate`;
 
+    // Format messages with file attachment support
+    const formattedMessages = messages.map((m, index) => {
+      // If this is the last message and has a file attachment
+      if (index === messages.length - 1 && file) {
+        // Image file - use vision
+        if (file.type.startsWith('image/')) {
+          return {
+            role: m.role,
+            content: [
+              {
+                type: 'image' as const,
+                source: {
+                  type: 'base64' as const,
+                  media_type: file.type as any,
+                  data: file.data,
+                },
+              },
+              {
+                type: 'text' as const,
+                text: m.content || 'What do you see in this image?',
+              },
+            ],
+          };
+        }
+        // PDF or document - add context in text
+        else if (file.type.includes('pdf') || file.type.includes('document')) {
+          return {
+            role: m.role,
+            content: `[User attached file: ${file.name}]\n\n${m.content || 'Please analyze this document.'}`,
+          };
+        }
+      }
+
+      // Regular text message
+      return {
+        role: m.role,
+        content: m.content,
+      };
+    });
+
     // Create streaming response
     const stream = new ReadableStream({
       async start(controller) {
@@ -95,10 +141,7 @@ Assistant: Let me create a task for your OAIA prep.
             model: CLAUDE_MODEL,
             max_tokens: MAX_TOKENS,
             system: systemPrompt,
-            messages: messages.map(m => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: formattedMessages as any,
           });
 
           // Forward each chunk as SSE

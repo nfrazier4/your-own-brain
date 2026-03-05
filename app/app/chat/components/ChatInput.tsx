@@ -8,11 +8,15 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSend: () => void;
   isStreaming: boolean;
+  onFileSelect?: (file: File) => void;
+  selectedFile?: File | null;
+  onRemoveFile?: () => void;
 }
 
-export function ChatInput({ value, onChange, onSend, isStreaming }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSend, isStreaming, onFileSelect, selectedFile, onRemoveFile }: ChatInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -23,13 +27,20 @@ export function ChatInput({ value, onChange, onSend, isStreaming }: ChatInputPro
   }, [value]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !isStreaming && value.trim()) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !isStreaming && (value.trim() || selectedFile)) {
       e.preventDefault();
       onSend();
     }
   };
 
-  const canSend = value.trim() && !isStreaming;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFileSelect) {
+      onFileSelect(file);
+    }
+  };
+
+  const canSend = (value.trim() || selectedFile) && !isStreaming;
 
   return (
     <div
@@ -39,6 +50,50 @@ export function ChatInput({ value, onChange, onSend, isStreaming }: ChatInputPro
         borderTop: `1px solid ${T.border}`,
       }}
     >
+      {/* File preview */}
+      {selectedFile && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: '10px 14px',
+            background: T.cardBg,
+            border: `1px solid ${T.border}`,
+            borderRadius: T.radiusSm,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: T.shadow,
+          }}
+        >
+          <span style={{ fontSize: 20 }}>
+            {selectedFile.type.startsWith('image/') ? '🖼️' :
+             selectedFile.type.includes('pdf') ? '📄' :
+             selectedFile.type.includes('document') ? '📝' : '📎'}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {selectedFile.name}
+            </div>
+            <div style={{ fontSize: 11, color: T.textMuted }}>
+              {(selectedFile.size / 1024).toFixed(1)} KB
+            </div>
+          </div>
+          <button
+            onClick={onRemoveFile}
+            style={{
+              padding: '4px 8px',
+              background: 'transparent',
+              border: 'none',
+              color: T.textMuted,
+              cursor: 'pointer',
+              fontSize: 16,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div
         style={{
           background: T.cardBg,
@@ -52,6 +107,35 @@ export function ChatInput({ value, onChange, onSend, isStreaming }: ChatInputPro
           padding: '12px 16px',
         }}
       >
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx,.txt"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+
+        {/* File upload button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isStreaming || !!selectedFile}
+          style={{
+            padding: '6px',
+            background: 'transparent',
+            border: 'none',
+            cursor: isStreaming || selectedFile ? 'not-allowed' : 'pointer',
+            fontSize: 18,
+            color: selectedFile ? T.textMuted : T.textSub,
+            display: 'flex',
+            alignItems: 'center',
+            opacity: selectedFile ? 0.5 : 1,
+          }}
+          title="Upload file"
+        >
+          📎
+        </button>
+
         <textarea
           ref={textareaRef}
           value={value}
@@ -59,7 +143,7 @@ export function ChatInput({ value, onChange, onSend, isStreaming }: ChatInputPro
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder="What can I help you with?"
+          placeholder={selectedFile ? "Add a message about this file..." : "What can I help you with?"}
           disabled={isStreaming}
           style={{
             flex: 1,

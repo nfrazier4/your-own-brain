@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { Brain, MessageSquare, History, Settings } from 'lucide-react';
 import { T } from '@/lib/design-tokens';
 import { AREAS, SMART_LISTS } from '@/lib/constants';
 import type { Message } from '@/lib/anthropic';
 import { ChatContainer } from './components/ChatContainer';
 import { ChatInput } from './components/ChatInput';
 import { CalendarPanel } from './components/CalendarPanel';
+import { Icon } from '@/components/ui/Icon';
 import Link from 'next/link';
 
 export default function ChatPage() {
@@ -17,6 +19,8 @@ export default function ChatPage() {
   const [isPullingToRefresh, setIsPullingToRefresh] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [touchStartY, setTouchStartY] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   // Pull-to-refresh handlers
   function handleTouchStart(e: React.TouchEvent) {
@@ -50,13 +54,61 @@ export default function ChatPage() {
     setTouchStartY(0);
   }
 
-  async function sendMessage() {
-    if (!input.trim() || isStreaming) return;
+  // File drag-and-drop handlers
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDraggingFile(true);
+  }
 
-    const userMessage: Message = { role: 'user', content: input.trim() };
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDraggingFile(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDraggingFile(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  }
+
+  // Convert file to base64
+  async function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        // Remove data:image/png;base64, prefix
+        const base64Data = base64.split(',')[1];
+        resolve(base64Data);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function sendMessage() {
+    if ((!input.trim() && !selectedFile) || isStreaming) return;
+
+    // Handle file attachment
+    let fileData = null;
+    if (selectedFile) {
+      const base64 = await fileToBase64(selectedFile);
+      fileData = {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        data: base64,
+      };
+    }
+
+    const userMessage: Message = { role: 'user', content: input.trim() || `[Attached: ${selectedFile?.name}]` };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
+    setSelectedFile(null);
     setIsStreaming(true);
 
     // Add empty assistant message that will be filled by streaming
@@ -67,7 +119,10 @@ export default function ChatPage() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          file: fileData,
+        }),
       });
 
       if (!response.ok) {
@@ -235,7 +290,9 @@ export default function ChatPage() {
         }}>
           {/* App wordmark */}
           <div style={{ padding: "4px 8px", display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 30, height: 30, background: T.yellow, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(255,214,10,0.35)" }}>🧠</div>
+            <div style={{ width: 30, height: 30, background: T.yellow, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(255,214,10,0.35)" }}>
+              <Icon icon={Brain} size={16} color={T.yellowText} decorative />
+            </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.01em" }}>Chief of Staff</div>
               <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 400 }}>Nate · Swell Studio</div>
@@ -247,14 +304,20 @@ export default function ChatPage() {
             <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 8px", marginBottom: 4 }}>Views</div>
             <Link href="/chat" style={{ textDecoration: 'none' }}>
               <div className="sidebar-item active" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
-                <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>💬</span>
+                <Icon icon={MessageSquare} size={16} color={T.text} aria-label="Chat" />
                 <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Chat</span>
               </div>
             </Link>
             <Link href="/memories" style={{ textDecoration: 'none' }}>
               <div className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
-                <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>🕐</span>
+                <Icon icon={History} size={16} color={T.textSub} aria-label="Memories" />
                 <span style={{ fontSize: 13, fontWeight: 400, color: T.textSub }}>Memories</span>
+              </div>
+            </Link>
+            <Link href="/settings" style={{ textDecoration: 'none' }}>
+              <div className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", marginBottom: 1 }}>
+                <Icon icon={Settings} size={16} color={T.textSub} aria-label="Settings" />
+                <span style={{ fontSize: 13, fontWeight: 400, color: T.textSub }}>Settings</span>
               </div>
             </Link>
           </div>
@@ -288,6 +351,9 @@ export default function ChatPage() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           {/* Pull-to-refresh indicator */}
           {pullDistance > 0 && (
@@ -319,6 +385,33 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* Drag-and-drop overlay */}
+          {isDraggingFile && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(255, 214, 10, 0.1)',
+                border: `3px dashed ${T.yellow}`,
+                borderRadius: T.radius,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100,
+                pointerEvents: 'none',
+              }}
+            >
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📎</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: T.yellowText }}>
+                Drop file to upload
+              </div>
+              <div style={{ fontSize: 14, color: T.textSub, marginTop: 8 }}>
+                Images, PDFs, and documents supported
+              </div>
+            </div>
+          )}
+
           <ChatContainer
             messages={messages}
             isStreaming={isStreaming}
@@ -332,6 +425,9 @@ export default function ChatPage() {
             onChange={setInput}
             onSend={sendMessage}
             isStreaming={isStreaming}
+            onFileSelect={setSelectedFile}
+            selectedFile={selectedFile}
+            onRemoveFile={() => setSelectedFile(null)}
           />
         </div>
 

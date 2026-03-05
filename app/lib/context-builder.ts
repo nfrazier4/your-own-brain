@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import { NATE_PROFILE } from './constants';
 import { getCalendarEvents, type CalendarEvent } from './google-calendar';
+import { getSlackMentions, type SlackMention } from './slack';
+import { getEmailsNeedingResponse, type GmailThread } from './gmail';
 
 interface Memory {
   id: number;
@@ -17,7 +19,8 @@ export interface ContextData {
   profile: typeof NATE_PROFILE;
   memories: Memory[];
   calendar: CalendarEvent[];
-  slack: any[];
+  slack: SlackMention[];
+  gmail: GmailThread[];
 }
 
 /**
@@ -46,18 +49,29 @@ async function fetchRecentMemories(limit: number = 10): Promise<Memory[]> {
 export async function buildContextForClaude(): Promise<ContextData> {
   try {
     // Parallel fetching for speed (~500ms total)
-    const [memories, calendar] = await Promise.all([
+    // Fail gracefully for external integrations if not connected
+    const [memories, calendar, slack, gmail] = await Promise.all([
       fetchRecentMemories(10),
-      getCalendarEvents('today').catch(() => []),
-      // TODO: Add Slack fetching in Phase 4
-      // getSlackMentions(24).catch(() => []),
+      getCalendarEvents('today').catch((err) => {
+        console.log('Calendar not available:', err.message);
+        return [];
+      }),
+      getSlackMentions(24).catch((err) => {
+        console.log('Slack not available:', err.message);
+        return [];
+      }),
+      getEmailsNeedingResponse(7).catch((err) => {
+        console.log('Gmail not available:', err.message);
+        return [];
+      }),
     ]);
 
     return {
       profile: NATE_PROFILE,
       memories: memories.slice(0, 10),
       calendar,
-      slack: [], // Placeholder for Phase 4
+      slack,
+      gmail,
     };
   } catch (error) {
     console.error('Context building error:', error);
@@ -68,6 +82,7 @@ export async function buildContextForClaude(): Promise<ContextData> {
       memories: [],
       calendar: [],
       slack: [],
+      gmail: [],
     };
   }
 }
@@ -132,10 +147,28 @@ ${context.calendar.map((event, i) => {
 }).join('\n\n')}`);
   }
 
-  // Slack section (placeholder for Phase 4)
+  // Gmail section
+  if (context.gmail.length > 0) {
+    sections.push(`## Emails Needing Response (${context.gmail.length} total)
+${context.gmail.slice(0, 5).map((email, i) => {
+  const status = email.unread ? '[UNREAD]' : '[Important]';
+  const preview = email.snippet.substring(0, 100);
+  return `${i + 1}. ${status} From: ${email.from}
+   Subject: ${email.subject}
+   Preview: ${preview}...`;
+}).join('\n\n')}`);
+  }
+
+  // Slack section
   if (context.slack.length > 0) {
-    sections.push(`## Recent Slack Mentions
-${context.slack.map((msg: any) => `- @${msg.user} in #${msg.channel}: "${msg.text}"`).join('\n')}`);
+    sections.push(`## Recent Slack Mentions (${context.slack.length} total)
+${context.slack.slice(0, 5).map((mention, i) => {
+  const channel = mention.channelName ? `#${mention.channelName}` : 'DM';
+  const user = mention.userName || 'Someone';
+  const preview = mention.text.substring(0, 100);
+  return `${i + 1}. ${user} in ${channel}:
+   "${preview}..."`;
+}).join('\n\n')}`);
   }
 
   return sections.join('\n\n');
