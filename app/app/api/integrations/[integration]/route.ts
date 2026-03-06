@@ -2,11 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * DELETE /api/integrations/[integration]
@@ -19,6 +21,7 @@ export async function DELETE(
   try {
     const { integration } = await params;
     const userId = 'nate'; // Single-user for now
+    const supabase = getSupabaseAdmin();
 
     if (!['google', 'slack'].includes(integration)) {
       return Response.json({ error: 'Invalid integration' }, { status: 400 });

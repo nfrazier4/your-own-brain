@@ -4,11 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * GET /api/auth/google/callback
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
 
     // Store tokens in Supabase
     const userId = 'nate'; // Single-user for now
+    const supabase = getSupabaseAdmin();
 
     const { error: dbError } = await supabase
       .from('oauth_tokens')

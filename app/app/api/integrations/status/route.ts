@@ -2,11 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 /**
  * GET /api/integrations/status
@@ -15,6 +17,7 @@ const supabase = createClient(
 export async function GET() {
   try {
     const userId = 'nate'; // Single-user for now
+    const supabase = getSupabaseAdmin();
 
     // Check which integrations have valid tokens
     const { data: tokens, error } = await supabase
