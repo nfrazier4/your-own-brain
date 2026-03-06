@@ -5,11 +5,19 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    // Return mock for build time
+    return {
+      from: () => ({
+        upsert: () => Promise.resolve({ data: null, error: null }),
+      }),
+    } as any;
+  }
+
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 /**

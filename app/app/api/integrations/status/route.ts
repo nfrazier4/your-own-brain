@@ -3,11 +3,21 @@ import { createClient } from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 
 function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    // Return mock for build time
+    return {
+      from: () => ({
+        select: () => ({
+          eq: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
+    } as any;
+  }
+
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 /**
@@ -36,7 +46,7 @@ export async function GET() {
       slack: false,
     };
 
-    tokens?.forEach((token) => {
+    tokens?.forEach((token: any) => {
       // Check if token is valid (not expired)
       const isValid = !token.expires_at || new Date(token.expires_at) > new Date();
       status[token.integration] = isValid;

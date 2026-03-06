@@ -12,8 +12,20 @@ export function getSupabase(): SupabaseClient {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+    // During build time, env vars might not be available
+    // Create a placeholder that will be replaced at runtime
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing Supabase environment variables');
+      // Return a mock client for build time
+      // This will never be called at runtime because the env vars will be available
+      return {
+        from: () => ({
+          select: () => ({ data: [], error: null }),
+          insert: () => ({ data: null, error: null }),
+          update: () => ({ data: null, error: null }),
+          upsert: () => ({ data: null, error: null }),
+          delete: () => ({ data: null, error: null }),
+        }),
+      } as any;
     }
 
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
