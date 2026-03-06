@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function ChatPage() {
-  useDocumentTitle('Chat');
+  useDocumentTitle('Chat - Chief of Staff');
   const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
