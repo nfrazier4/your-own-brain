@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Chief of Staff - Your Personal Life Integration System",
-  description: "AI-powered personal assistant with context from your brain, calendar, and Slack. Chat-first interface for ADHD-friendly workflows.",
+  description: "AI-powered personal assistant with context from your brain, calendar, and Slack. Chat-first interface for ADHD-friendly workflows with dark mode support.",
   applicationName: "Chief of Staff",
   manifest: "/manifest.json",
   appleWebApp: {
