@@ -27,6 +27,13 @@ function getSupabaseAdmin() {
 export async function GET() {
   try {
     const userId = 'nate'; // Single-user for now
+
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      // Return empty status if not configured
+      return Response.json({ google: false, slack: false });
+    }
+
     const supabase = getSupabaseAdmin();
 
     // Check which integrations have valid tokens

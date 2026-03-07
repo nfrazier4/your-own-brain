@@ -41,16 +41,20 @@ function applyTheme(theme: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Initialize from localStorage or default to 'system'
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'system';
-    return (localStorage.getItem(STORAGE_KEY) as Theme) || 'system';
-  });
+  // Always initialize to 'system' on server to avoid hydration mismatch
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
+  const [mounted, setMounted] = useState(false);
 
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
-    if (typeof window === 'undefined') return 'light';
-    return resolveTheme(theme);
-  });
+  // Load theme from localStorage after mount (client-side only)
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = (localStorage.getItem(STORAGE_KEY) as Theme) || 'system';
+    setThemeState(savedTheme);
+    const resolved = resolveTheme(savedTheme);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+  }, []);
 
   // Set theme and persist to localStorage
   const setTheme = (newTheme: Theme) => {
@@ -64,12 +68,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     console.log('[ThemeProvider] Applied theme to document, data-theme:', document.documentElement.getAttribute('data-theme'));
   };
 
-  // Apply theme on mount and when theme changes
+  // Apply theme when theme changes (but not on initial mount, that's handled above)
   useEffect(() => {
+    if (!mounted) return;
     const resolved = resolveTheme(theme);
     setResolvedTheme(resolved);
     applyTheme(resolved);
-  }, [theme]);
+  }, [theme, mounted]);
 
   // Listen for system theme changes when theme is 'system'
   useEffect(() => {
