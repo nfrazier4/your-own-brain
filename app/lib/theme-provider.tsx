@@ -54,11 +54,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Set theme and persist to localStorage
   const setTheme = (newTheme: Theme) => {
+    console.log('[ThemeProvider] setTheme called with:', newTheme);
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
     const resolved = resolveTheme(newTheme);
+    console.log('[ThemeProvider] Resolved theme:', resolved);
     setResolvedTheme(resolved);
     applyTheme(resolved);
+    console.log('[ThemeProvider] Applied theme to document, data-theme:', document.documentElement.getAttribute('data-theme'));
   };
 
   // Apply theme on mount and when theme changes

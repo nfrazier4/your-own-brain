@@ -62,6 +62,7 @@ export default function SettingsPage() {
   }
 
   async function handleConnect(integrationId: string) {
+    console.log('Connect button clicked for:', integrationId);
     // Redirect to OAuth flow
     window.location.href = `/api/auth/${integrationId}/authorize`;
   }
@@ -201,7 +202,11 @@ export default function SettingsPage() {
                 {(['light', 'dark', 'system'] as const).map((themeOption) => (
                   <button
                     key={themeOption}
-                    onClick={() => setTheme(themeOption)}
+                    onClick={() => {
+                      console.log('Theme button clicked:', themeOption);
+                      setTheme(themeOption);
+                      console.log('Theme after setTheme:', theme);
+                    }}
                     style={{
                       flex: 1,
                       padding: '12px 16px',
