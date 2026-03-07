@@ -24,6 +24,19 @@ export async function POST(req: Request) {
       return new Response('Invalid request: messages array required', { status: 400 });
     }
 
+    // Check if API key is configured
+    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your-api-key-here') {
+      return new Response(
+        JSON.stringify({
+          error: 'Anthropic API key not configured. Please add ANTHROPIC_API_KEY to your Vercel environment variables.'
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Fetch context in parallel (profile + memories + calendar + slack)
     const context = await buildContextForClaude();
     const formattedContext = formatContextForPrompt(context);
